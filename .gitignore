@@ -1,0 +1,25 @@
+# Build artifacts
+gta6-blog
+data/
+data_backup_v3/
+
+# FlashDB
+*.fdb.*
+
+# Logs
+*.log
+
+# IDE
+*.swp
+*.swo
+*~\
+.idea/
+.vscode/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Vercel dev
+node_modules/
+.next/

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About — GTA6 Blog</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="vice-bg">
+<nav class="navbar navbar-dark navbar-gta sticky-top"><div class="container">
+<a class="navbar-brand brand-gta" href="/">GTA VI<small>BLOG • LEONIDA</small></a>
+<div class="ms-auto d-flex gap-2"><a class="btn btn-ghost btn-sm" href="/">Home</a></div>
+</div></nav>
+<main class="container my-5" style="max-width:860px">
+  <span class="badge-2026">ABOUT THE BLOG</span>
+  <h1 class="hero-title mt-3" style="font-size:clamp(2rem,5vw,3.5rem)">WELCOME TO<br>LEONIDA 🌴</h1>
+  <p class="lead mt-3">A fan-made GTA VI blog with <b>official videos and confirmed facts only</b> — no rumors, no intox. Running on a hand-rolled <b>pure C HTTP server</b> with <b>FlashDB</b> (KVDB + TSDB) as the database. No PHP, no Node, no framework. Just sockets, neon and Vice City dreams.</p>
+  <div class="glow-line my-4"></div>
+  <div class="row g-3">
+    <div class="col-md-4"><div class="admin-card p-3"><h4>⚡ Pure C</h4><p class="meta mb-0">Single <code>server.c</code>: POSIX sockets, pthreads, hand-parsed HTTP + JSON. Static files are pure HTML/CSS/JS + Bootstrap 5.</p></div></div>
+    <div class="col-md-4"><div class="admin-card p-3"><h4>💾 FlashDB</h4><p class="meta mb-0">Real <a href="https://github.com/armink/FlashDB" target="_blank">armink/FlashDB</a> in Linux file mode. Posts/comments in <b>KVDB</b>, views &amp; events in <b>TSDB</b>.</p></div></div>
+    <div class="col-md-4"><div class="admin-card p-3"><h4>✅ Official only</h4><p class="meta mb-0">Every post is a Rockstar video or a confirmed fact — trailers, the Extended Look, release date, price, platforms. No rumors, no intox.</p></div></div>
+  </div>
+  <h2 class="section-title mt-5">GTA VI <span>TIMELINE</span> <span class="meta" style="font-size:.9rem">(confirmed)</span></h2>
+  <ul class="list-group list-group-flush mt-3">
+    <li class="list-group-item bg-transparent text-white">📼 <b>Dec 2023</b> — Trailer 1: ~93M views in 24h. Welcome back to Vice City.</li>
+    <li class="list-group-item bg-transparent text-white">🎬 <b>May 2025</b> — Trailer 2: Lucia &amp; Jason's story.</li>
+    <li class="list-group-item bg-transparent text-white">🎥 <b>Aug 27, 2026</b> — An Extended Look premieres on Netflix, then YouTube: ~26 min, all PS5 footage.</li>
+    <li class="list-group-item bg-transparent text-white">🚀 <b>Nov 19</b> — Launch on PS5 + Xbox Series X|S, from $79.99. Pre-orders: rockstargames.com/VI.</li>
+  </ul>
+  <h2 class="section-title mt-5">F.A.Q.</h2>
+  <div class="accordion mt-3" id="faq">
+    <div class="accordion-item bg-dark text-white"><h2 class="accordion-header"><button class="accordion-button bg-dark text-white" data-bs-toggle="collapse" data-bs-target="#f1">Is this official?</button></h2><div id="f1" class="accordion-collapse collapse show"><div class="accordion-body">No. Fan project, not affiliated with Rockstar Games / Take-Two.</div></div></div>
+    <div class="accordion-item bg-dark text-white"><h2 class="accordion-header"><button class="accordion-button collapsed bg-dark text-white" data-bs-toggle="collapse" data-bs-target="#f2">Where is data stored?</button></h2><div id="f2" class="accordion-collapse collapse"><div class="accordion-body">In <code>./data/fdb_kvdb</code> + <code>./data/fdb_tsdb</code> via FlashDB. Delete the folder to reset the blog.</div></div></div>
+  </div>
+</main>
+<footer class="py-4"><div class="container meta">🌴 GTA6 Blog — <a href="/">Home</a></div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(async () => { /* page-view beacon with visitor country */
+  try {
+    let g = null;
+    try { g = JSON.parse(localStorage.getItem('gta6_geo') || 'null'); } catch (e) {}
+    if (!g || Date.now() - g.ts > 7 * 24 * 3600 * 1000) {
+      g = await Promise.race([
+        fetch('https://ip-api.com/json/?fields=status,country,countryCode').then(r => r.json())
+          .then(j => j.status === 'success' ? { cc: j.countryCode, country: j.country } : { cc: 'XX', country: 'Unknown' }).catch(() => ({ cc: 'XX', country: 'Unknown' })),
+        new Promise(res => setTimeout(() => res({ cc: 'XX', country: 'Unknown' }), 2500))
+      ]);
+      try { localStorage.setItem('gta6_geo', JSON.stringify({ ...g, ts: Date.now() })); } catch (e) {}
+    }
+    fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 'about', cc: g.cc, country: g.country }), keepalive: true });
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

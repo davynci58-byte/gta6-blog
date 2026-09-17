@@ -1,0 +1,7 @@
+src/
+Makefile
+third_party/
+include/
+data/
+*.c
+*.h

@@ -1,0 +1,9 @@
+{
+  "name": "gta6-blog",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Backend is the C server on port 8080'",
+    "build": "echo 'No build step needed'"
+  }
+}

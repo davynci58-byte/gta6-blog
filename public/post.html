@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Post — GTA6 Blog</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="vice-bg">
+<nav class="navbar navbar-expand-lg navbar-dark navbar-gta sticky-top">
+  <div class="container">
+    <a class="navbar-brand brand-gta" href="/">GTA VI<small>BLOG • LEONIDA</small></a>
+    <div class="ms-auto d-flex gap-2">
+      <a class="btn btn-ghost btn-sm" href="/">← All posts</a>
+    </div>
+  </div>
+</nav>
+<main class="container my-4" style="max-width:860px">
+  <div id="post"></div>
+  <div class="glow-line my-4"></div>
+  <h3>💬 Comments (<span id="ccount">0</span>)</h3>
+  <div id="comments" class="d-flex flex-column gap-2 my-3"></div>
+  <div class="admin-card p-3">
+    <h5>Join the discussion</h5>
+    <div class="row g-2">
+      <div class="col-md-4"><input id="cAuthor" class="form-control" placeholder="Your street name" maxlength="60"></div>
+      <div class="col-md-8"><input id="cText" class="form-control" placeholder="What did you think? (no spoilers!)" maxlength="2000"></div>
+    </div>
+    <button class="btn btn-neon mt-2" onclick="sendComment()">Post comment</button>
+    <div id="cMsg" class="meta mt-2"></div>
+  </div>
+  <h3 class="mt-5">🔥 Keep reading</h3>
+  <div id="related" class="row g-3 mt-1"></div>
+</main>
+<footer class="py-4"><div class="container meta">🌴 GTA6 Blog — fan project. <a href="/">Home</a></div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const q = new URLSearchParams(location.search);
+const id = q.get('id');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function getGeo() {
+  try {
+    const c = JSON.parse(localStorage.getItem('gta6_geo') || 'null');
+    if (c && c.cc && Date.now() - c.ts < 7 * 24 * 3600 * 1000) return c;
+  } catch (e) {}
+  const lookup = (async () => {
+    try {
+      const r = await fetch('https://ip-api.com/json/?fields=status,country,countryCode');
+      const j = await r.json();
+      if (j.status === 'success' && j.countryCode) return { cc: j.countryCode, country: j.country };
+    } catch (e) {}
+    try {
+      const r = await fetch('https://ipapi.co/json/');
+      const j = await r.json();
+      if (j.country_code) return { cc: j.country_code, country: j.country_name };
+    } catch (e) {}
+    return { cc: 'XX', country: 'Unknown' };
+  })();
+  const g = await Promise.race([lookup, new Promise(res => setTimeout(() => res({ cc: 'XX', country: 'Unknown' }), 2000))]);
+  try { localStorage.setItem('gta6_geo', JSON.stringify({ ...g, ts: Date.now() })); } catch (e) {}
+  return g;
+}
+async function load() {
+  if (!id) { document.getElementById('post').innerHTML = '<p>No post id. <a href="/">Go home</a></p>'; return; }
+  const g = await getGeo(); /* resolve country BEFORE counting the view */
+  const r = await fetch('/api/post?id=' + encodeURIComponent(id) + '&cc=' + encodeURIComponent(g.cc) + '&country=' + encodeURIComponent(g.country));
+  if (!r.ok) { document.getElementById('post').innerHTML = '<h2>404 — lost in the swamps 🐊</h2><a href="/">Back</a>'; return; }
+  const p = await r.json();
+  document.title = p.title + ' — GTA6 Blog';
+  document.getElementById('post').innerHTML = `
+    <span class="cat-badge">${esc(p.category)}</span>
+    <span class="meta ms-2">📅 ${esc(p.date)} • ✍️ ${esc(p.author)}${p.video ? ` • 👁 ${p.views||0} views` : ''} • 💬 ${(p.commentList||[]).length}</span>
+    <h1 class="fw-black mt-2">${esc(p.title)}</h1>
+    <p class="lead meta">${esc(p.excerpt)}</p>
+    ${p.video ? `
+    <div class="trailer-frame ratio ratio-16x9 my-3">
+      <iframe src="https://www.youtube-nocookie.com/embed/${esc(p.video)}" title="${esc(p.title)}" allowfullscreen></iframe>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap mb-3">
+      <a class="btn btn-neon btn-sm" href="https://www.youtube.com/watch?v=${esc(p.video)}" target="_blank" rel="noopener">▶ Watch on YouTube</a>
+      <span class="meta">Embed blocked? The button always works (age-gated videos need login).</span>
+    </div>` : `
+    <img class="article-img my-3" src="${esc(p.image)}" alt="" loading="lazy" onerror="this.src='https://picsum.photos/seed/gta6${esc(p.id)}/1200/600'">`}
+    <div class="article-body">${esc(p.content)}</div>
+    <div class="mt-3 meta">🏷 ${(p.tags||'').split(',').map(t=>'<span class=&quot;badge text-bg-dark border me-1&quot;>#'+esc(t.trim())+'</span>').join(' ')}</div>
+    <div class="mt-3 d-flex gap-2">
+      <a class="btn btn-ghost btn-sm" href="https://twitter.com/intent/tweet?text=${encodeURIComponent(p.title)}" target="_blank">𝕏 Share</a>
+      <a class="btn btn-ghost btn-sm" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(location.href)}" target="_blank">f Share</a>
+      <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(location.href);this.textContent='🔗 Copied!'">🔗 Copy link</button>
+    </div>`;
+  renderComments(p.commentList || []);
+  const rel = await (await fetch('/api/posts?per=4')).json();
+  document.getElementById('related').innerHTML = rel.posts.filter(x=>String(x.id)!==String(id)).slice(0,3).map(x=>{
+    const fb = x.video ? `https://i.ytimg.com/vi/${x.video}/hqdefault.jpg` : `https://picsum.photos/seed/gta6${x.id}/600/300`;
+    return `
+    <div class="col-md-4"><a href="/post?id=${x.id}" class="text-decoration-none">
+      <div class="post-card"><div class="thumb-wrap"><img src="${esc(x.image)}" loading="lazy" onerror="this.onerror=null;this.src='${fb}'">${x.video ? '<div class="play-badge"><i>▶</i></div>' : ''}</div>
+      <div class="p-3"><span class="cat-badge">${esc(x.category)}</span><h6 class="mt-2 text-white">${x.video ? '▶ ' : ''}${esc(x.title)}</h6></div></div>
+    </a></div>`;}).join('');
+}
+function renderComments(list) {
+  document.getElementById('ccount').textContent = list.length;
+  document.getElementById('comments').innerHTML = list.length ? list.map(c=>`
+    <div class="comment p-3"><b class="text-white">🧍 ${esc(c.author)}</b> <span class="meta">• ${esc(c.date)}</span><div>${esc(c.text)}</div></div>`).join('')
+    : '<p class="meta">No comments yet. Be the first kingpin of this thread 👑</p>';
+}
+async function sendComment() {
+  const author = document.getElementById('cAuthor').value.trim();
+  const text = document.getElementById('cText').value.trim();
+  const msg = document.getElementById('cMsg');
+  if (!author || !text) { msg.textContent = 'Need a name + message.'; return; }
+  const r = await fetch('/api/comments', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({post_id:id, author, text}) });
+  msg.textContent = r.ok ? '✅ Posted!' : '❌ ' + (await r.json()).error;
+  if (r.ok) { document.getElementById('cText').value=''; load(); }
+}
+load();
+</script>
+</body>
+</html>

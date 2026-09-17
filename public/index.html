@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GTA6 Blog — Vice City Central | News, Trailers, Map & Guides</title>
+<meta name="description" content="The fan-made GTA 6 blog: Extended Look, both trailers and confirmed release info. No rumors.">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/css/style.css" rel="stylesheet">
+<noscript><style>.reveal { opacity: 1 !important; transform: none !important; }</style></noscript>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌴</text></svg>">
+</head>
+<body class="vice-bg">
+<div id="progress"></div>
+
+<nav class="navbar navbar-expand-lg navbar-dark navbar-gta sticky-top">
+  <div class="container">
+    <a class="navbar-brand brand-gta" href="/">GTA VI<small>BLOG • LEONIDA</small></a>
+    <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+        <li class="nav-item"><a class="nav-link active" href="/">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
+        <li class="nav-item ms-lg-2">
+          <form class="d-flex" onsubmit="return goSearch(event)">
+            <input id="navSearch" class="form-control form-control-sm" placeholder="Search Lucia, map, trailer…">
+          </form>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<header class="hero py-5">
+  <div class="palm" style="left:2%;top:5%">🌴</div>
+  <div class="container py-4">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-7">
+        <span class="badge-2026 mb-3 rise" style="animation-delay:.05s"><span class="dot"></span>NOV 19 • PS5 + XBOX • $79.99</span>
+        <h1 class="hero-title rise" style="animation-delay:.15s">GRAND THEFT<br>AUTO <span class="text-pink">VI</span></h1>
+        <p class="hero-sub mt-3 rise" style="animation-delay:.25s">Welcome to Leonida 🌴 — <b class="text-white">official videos &amp; confirmed facts only</b>: the Extended Look, both trailers and Rockstar's release info. No rumors, no intox.</p>
+        <div class="d-flex gap-2 mt-4 flex-wrap rise" style="animation-delay:.35s">
+          <a href="#latest" class="btn btn-neon btn-lg">📰 Read latest</a>
+          <a href="#trailers" class="btn btn-ghost btn-lg">▶ Watch videos</a>
+        </div>
+      </div>
+      <div class="col-lg-5 rise" style="animation-delay:.45s">
+        <div class="trailer-frame ratio ratio-16x9">
+          <iframe src="https://www.youtube-nocookie.com/embed/uphThaa97ig" title="GTA VI: An Extended Look" allowfullscreen loading="lazy"></iframe>
+        </div>
+        <p class="meta mt-2 mb-0 text-center">An Extended Look — 26 min of PS5 gameplay 🎬</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container my-5 reveal" id="latest">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="section-title mb-0">Latest <span>stories</span></h2>
+    <input id="search" class="form-control" style="max-width:280px" placeholder="🔍 Search posts…">
+  </div>
+  <div id="cats" class="d-flex gap-2 flex-wrap mb-4"></div>
+  <div class="glow-line mb-4"></div>
+  <div id="featured" class="row g-4 mb-4"></div>
+  <div id="grid" class="row g-4"></div>
+  <div id="empty" class="text-center meta py-5 d-none">No posts found in Leonida… try another search. 🌵</div>
+  <nav class="d-flex flex-column align-items-center gap-2 mt-4">
+    <span id="pageInfo" class="meta"></span>
+    <button id="moreBtn" class="btn btn-ghost d-none">Load more ↓</button>
+    <div id="sentinel" style="height:1px;width:100%"></div>
+  </nav>
+</main>
+
+<section id="trailers" class="container my-5 reveal">
+  <h2 class="section-title">Official <span>videos</span></h2>
+  <div class="glow-line my-3"></div>
+  <div class="row g-4">
+    <div class="col-md-4"><div class="trailer-frame ratio ratio-16x9"><iframe src="https://www.youtube-nocookie.com/embed/uphThaa97ig" title="GTA VI: An Extended Look" allowfullscreen loading="lazy"></iframe></div><p class="meta mt-2">🎬 An Extended Look — 26 min, PS5 footage (Aug 2026)</p></div>
+    <div class="col-md-4"><div class="trailer-frame ratio ratio-16x9"><iframe src="https://www.youtube-nocookie.com/embed/VQRLujxTm3c" title="GTA VI Trailer 2" allowfullscreen loading="lazy"></iframe></div><p class="meta mt-2">🌴 Trailer 2 — the story trailer (May 2025)</p></div>
+    <div class="col-md-4"><div class="trailer-frame ratio ratio-16x9"><iframe src="https://www.youtube-nocookie.com/embed/QdBZY2fkU-0" title="GTA VI Trailer 1" allowfullscreen loading="lazy"></iframe></div><p class="meta mt-2">📼 Trailer 1 — the record-breaker (Dec 2023)</p></div>
+  </div>
+</section>
+
+<section class="container my-5 reveal">
+  <div class="news-box p-4 p-md-5">
+    <div class="row align-items-center g-3">
+      <div class="col-md-7">
+        <h3 class="fw-black">📬 Get the Leonida wire</h3>
+        <p class="mb-0 meta">One email per trailer drop. No spam, no FIB tracking. Unsubscribe anytime.</p>
+      </div>
+      <div class="col-md-5">
+        <form class="d-flex gap-2" onsubmit="return subscribe(event)">
+          <input id="nlEmail" type="email" required class="form-control" placeholder="you@vicecity.fm">
+          <button class="btn btn-neon">Join</button>
+        </form>
+        <div id="nlMsg" class="meta mt-2"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="py-4 mt-5">
+  <div class="container d-flex justify-content-between flex-wrap gap-2">
+    <span>🌴 GTA6 Blog — fan project. Not affiliated with Rockstar Games.</span>
+    <span><a href="/about">About</a></span>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
