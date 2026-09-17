@@ -1,5 +1,9 @@
 {
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://gta6blogspot.strangled.net/api/:path*" }
+    { "source": "/api/:path*", "destination": "https://gta6blogspot.strangled.net/api/:path*" },
+    { "source": "/post", "destination": "/post.html" },
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/:path", "destination": "/:path.html" }
   ]
 }

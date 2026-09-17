@@ -4,6 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "echo 'Backend is the C server on port 8080'",
-    "build": "cp -r public/* . && cp -r public/.* . 2>/dev/null; true"
+    "build": "echo 'No build step'"
   }
 }
