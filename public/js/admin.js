@@ -1,6 +1,8 @@
 /* admin panel logic — pure vanilla JS */
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = id => document.getElementById(id);
+/* canonical post URL: /post/<slug>, falling back to ?id= for legacy posts */
+const postURL = p => p.slug ? '/post/' + encodeURIComponent(p.slug) : '/post?id=' + encodeURIComponent(p.id);
 
 async function me() {
   const r = await fetch('/api/me'); return (await r.json()).admin;
@@ -62,7 +64,7 @@ async function loadStats() {
 async function loadPosts() {
   const j = await (await fetch('/api/posts?per=50')).json();
   $('postRows').innerHTML = j.posts.map(p => `<tr>
-    <td>${p.id}</td><td><a href="/post?id=${p.id}" target="_blank">${esc(p.title).slice(0,60)}</a>${p.featured?' ⭐':''}</td>
+    <td>${p.id}</td><td><a href="${postURL(p)}" target="_blank">${esc(p.title).slice(0,60)}</a>${p.featured?' ⭐':''}</td>
     <td><span class="badge text-bg-secondary">${esc(p.category)}</span></td><td>${p.views||0} 👁 / ${p.comments||0} 💬</td>
     <td class="text-nowrap"><button class="btn btn-sm btn-ghost" onclick="openEdit('${p.id}')">Edit</button>
     <button class="btn btn-sm btn-danger" onclick="delPost('${p.id}')">Del</button></td></tr>`).join('');
@@ -71,7 +73,7 @@ async function loadPosts() {
   for (const p of j.posts.slice(0, 6)) {
     const c = await (await fetch('/api/comments?post_id=' + p.id)).json();
     (c.comments || []).slice(0, 3).forEach((cm, i) => {
-      html += `<div class="comment p-2"><b>${esc(cm.author)}</b> on <a href="/post?id=${p.id}">#${p.id}</a>: ${esc(cm.text).slice(0,90)}
+      html += `<div class="comment p-2"><b>${esc(cm.author)}</b> on <a href="${postURL(p)}">#${p.id}</a>: ${esc(cm.text).slice(0,90)}
         <button class="btn btn-sm btn-link text-danger p-0 ms-1" onclick="delComment('${p.id}',${i})">delete</button></div>`;
     });
   }

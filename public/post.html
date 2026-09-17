@@ -36,7 +36,15 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const q = new URLSearchParams(location.search);
-const id = q.get('id');
+/* slug URL (/post/<slug>) is canonical; ?slug= and legacy ?id= still work */
+let slug = q.get('slug') || '';
+let id = q.get('id') || '';
+if (!slug && !id) {
+  const m = location.pathname.match(/^\/post\/(.+?)\/?$/);
+  if (m) slug = decodeURIComponent(m[1]);
+}
+let pid = ''; /* numeric id, resolved after load (for comments/views keys) */
+const postURL = p => p.slug ? '/post/' + encodeURIComponent(p.slug) : '/post?id=' + encodeURIComponent(p.id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function getGeo() {
   try {
@@ -61,11 +69,14 @@ async function getGeo() {
   return g;
 }
 async function load() {
-  if (!id) { document.getElementById('post').innerHTML = '<p>No post id. <a href="/">Go home</a></p>'; return; }
+  if (!slug && !id) { document.getElementById('post').innerHTML = '<p>No post specified. <a href="/">Go home</a></p>'; return; }
   const g = await getGeo(); /* resolve country BEFORE counting the view */
-  const r = await fetch('/api/post?id=' + encodeURIComponent(id) + '&cc=' + encodeURIComponent(g.cc) + '&country=' + encodeURIComponent(g.country));
+  const pq = slug ? 'slug=' + encodeURIComponent(slug) : 'id=' + encodeURIComponent(id);
+  const r = await fetch('/api/post?' + pq + '&cc=' + encodeURIComponent(g.cc) + '&country=' + encodeURIComponent(g.country));
   if (!r.ok) { document.getElementById('post').innerHTML = '<h2>404 — lost in the swamps 🐊</h2><a href="/">Back</a>'; return; }
   const p = await r.json();
+  pid = p.id; id = p.id;
+  if (p.slug) { slug = p.slug; history.replaceState(null, '', postURL(p)); }
   document.title = p.title + ' — GTA6 Blog';
   document.getElementById('post').innerHTML = `
     <span class="cat-badge">${esc(p.category)}</span>
@@ -90,10 +101,10 @@ async function load() {
     </div>`;
   renderComments(p.commentList || []);
   const rel = await (await fetch('/api/posts?per=4')).json();
-  document.getElementById('related').innerHTML = rel.posts.filter(x=>String(x.id)!==String(id)).slice(0,3).map(x=>{
+  document.getElementById('related').innerHTML = rel.posts.filter(x=>String(x.id)!==String(pid)).slice(0,3).map(x=>{
     const fb = x.video ? `https://i.ytimg.com/vi/${x.video}/hqdefault.jpg` : `https://picsum.photos/seed/gta6${x.id}/600/300`;
     return `
-    <div class="col-md-4"><a href="/post?id=${x.id}" class="text-decoration-none">
+    <div class="col-md-4"><a href="${postURL(x)}" class="text-decoration-none">
       <div class="post-card"><div class="thumb-wrap"><img src="${esc(x.image)}" loading="lazy" onerror="this.onerror=null;this.src='${fb}'">${x.video ? '<div class="play-badge"><i>▶</i></div>' : ''}</div>
       <div class="p-3"><span class="cat-badge">${esc(x.category)}</span><h6 class="mt-2 text-white">${x.video ? '▶ ' : ''}${esc(x.title)}</h6></div></div>
     </a></div>`;}).join('');
@@ -109,7 +120,7 @@ async function sendComment() {
   const text = document.getElementById('cText').value.trim();
   const msg = document.getElementById('cMsg');
   if (!author || !text) { msg.textContent = 'Need a name + message.'; return; }
-  const r = await fetch('/api/comments', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({post_id:id, author, text}) });
+  const r = await fetch('/api/comments', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({post_id:pid, author, text}) });
   msg.textContent = r.ok ? '✅ Posted!' : '❌ ' + (await r.json()).error;
   if (r.ok) { document.getElementById('cText').value=''; load(); }
 }

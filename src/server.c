@@ -480,11 +480,80 @@ static int valid_video(const char *v) {
 static void seed_post(const char *id, const char *title, const char *cat,
                       const char *excerpt, const char *image, const char *tags,
                       const char *author, int featured, const char *video,
+                      const char *content); /* fwd: defined after slug helpers */
+
+/* Turn a title into a URL slug: lowercase, alnum kept, runs of other
+ * chars become a single '-', cut at a word boundary to fit FlashDB's
+ * 64-char key limit (slug_ prefix eats 5, so <= 56 chars incl. suffix room).
+ * Non-ASCII bytes are treated as separators. Never empty (falls back). */
+#define SLUG_MAX 48
+static void make_slug(const char *title, const char *id, char *out, size_t n) {
+    char tmp[128]; size_t o = 0;
+    int dash = 1; /* pretend we just emitted a dash: trims leading seps */
+    for (const unsigned char *p = (const unsigned char *)title; *p && o + 1 < sizeof(tmp); p++) {
+        unsigned char c = *p;
+        if (c >= 'A' && c <= 'Z') c += 32;
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+            tmp[o++] = (char)c; dash = 0;
+        } else if (!dash) {
+            tmp[o++] = '-'; dash = 1;
+        }
+    }
+    while (o > 0 && tmp[o-1] == '-') o--; /* trim trailing dash */
+    tmp[o] = 0;
+    if (!o) { snprintf(out, n, "post-%s", id); return; }
+    if (o <= SLUG_MAX) { strncpy(out, tmp, n - 1); out[n-1] = 0; return; }
+    /* cut at last '-' within limit so we don't split a word */
+    size_t cut = SLUG_MAX;
+    for (size_t i = SLUG_MAX; i > 12; i--)
+        if (tmp[i] == '-') { cut = i; break; }
+    tmp[cut] = 0;
+    strncpy(out, tmp, n - 1); out[n-1] = 0;
+}
+
+/* Make slug unique via slug_<slug> -> id mapping. exclude_id (may be NULL)
+ * is allowed to own the slug (for edits). Result in out. */
+static void slug_unique(const char *base, const char *exclude_id, char *out, size_t n) {
+    strncpy(out, base, n - 1); out[n-1] = 0;
+    char key[192], *owner;
+    for (int i = 1; i < 1000; i++) {
+        if (i > 1) snprintf(out, n, "%s-%d", base, i);
+        snprintf(key, sizeof(key), "slug_%s", out);
+        owner = db_get(key);
+        if (!owner) return; /* free */
+        int mine = exclude_id && !strcmp(owner, exclude_id);
+        free(owner);
+        if (mine) return;
+    }
+    /* absurd fallback: base + timestamp-ish suffix */
+    snprintf(out, n, "%s-%ld", base, (long)time(NULL) % 100000);
+}
+
+/* Resolve slug -> numeric id. Returns 1 on success. */
+static int post_id_by_slug(const char *slug, char *id_out, size_t n) {
+    if (!slug || !*slug) return 0;
+    for (const char *p = slug; *p; p++) {
+        char c = *p;
+        if (!isalnum((unsigned char)c) && c != '-' && c != '_') return 0;
+    }
+    char key[192]; snprintf(key, sizeof(key), "slug_%s", slug);
+    char *id = db_get(key);
+    if (!id) return 0;
+    strncpy(id_out, id, n - 1); id_out[n-1] = 0;
+    free(id);
+    return id_out[0] != 0;
+}
+
+static void seed_post(const char *id, const char *title, const char *cat,
+                      const char *excerpt, const char *image, const char *tags,
+                      const char *author, int featured, const char *video,
                       const char *content) {
     char date[16]; today_iso(date, sizeof(date));
+    char base[96]; make_slug(title, id, base, sizeof(base));
+    char slug[128]; slug_unique(base, id, slug, sizeof(slug));
     char *json = malloc(MAX_POST_SIZE);
     if (!json) return;
-    char et[4096], ee[8192], ec[16000], eg[1024], ei[1024], ea[256], ev[32];
+    char et[4096], ee[8192], ec[16000], eg[1024], ei[1024], ea[256], ev[32], es[192];
     json_escape_into(title, et, sizeof(et));
     json_escape_into(excerpt, ee, sizeof(ee));
     json_escape_into(content, ec, sizeof(ec));
@@ -492,22 +561,25 @@ static void seed_post(const char *id, const char *title, const char *cat,
     json_escape_into(image, ei, sizeof(ei));
     json_escape_into(author, ea, sizeof(ea));
     json_escape_into(video ? video : "", ev, sizeof(ev));
+    json_escape_into(slug, es, sizeof(es));
     char cat_e[256]; json_escape_into(cat, cat_e, sizeof(cat_e));
     snprintf(json, MAX_POST_SIZE,
-        "{\"id\":\"%s\",\"title\":\"%s\",\"category\":\"%s\",\"excerpt\":\"%s\","
+        "{\"id\":\"%s\",\"slug\":\"%s\",\"title\":\"%s\",\"category\":\"%s\",\"excerpt\":\"%s\","
         "\"image\":\"%s\",\"tags\":\"%s\",\"author\":\"%s\",\"date\":\"%s\",\"featured\":%d,"
         "\"video\":\"%s\",\"content\":\"%s\"}",
-        id, et, cat_e, ee, ei, eg, ea, date, featured, ev, ec);
+        id, es, et, cat_e, ee, ei, eg, ea, date, featured, ev, ec);
     char key[64]; snprintf(key, sizeof(key), "post_%s", id);
     db_set(key, json);
     free(json);
+    char skey[192]; snprintf(skey, sizeof(skey), "slug_%s", slug);
+    db_set(skey, id);
 }
 
 /* v3 content pass: official videos + official info ONLY (old rumor/guide posts removed) */
 static void ensure_seed(void) {
     char *s = db_get("seeded_v3");
     if (s) { free(s); return; }
-    /* wipe previous seed generation (posts + their counters/comments) */
+    /* wipe previous seed generation (posts + their counters/comments/slugs) */
     char *old_idx = db_get("posts_index");
     if (old_idx) {
         char *cp = strdup(old_idx);
@@ -515,7 +587,15 @@ static void ensure_seed(void) {
             while (*t == ' ') t++;
             if (!*t) continue;
             char k[80];
-            snprintf(k, sizeof(k), "post_%s", t);     db_del(k);
+            snprintf(k, sizeof(k), "post_%s", t);
+            char *pj = db_get(k);
+            if (pj) { /* drop this post's slug mapping too */
+                char sl[192] = {0};
+                json_field(pj, "slug", sl, sizeof(sl));
+                if (sl[0]) { char sk[256]; snprintf(sk, sizeof(sk), "slug_%s", sl); db_del(sk); }
+                free(pj);
+            }
+            db_del(k);
             snprintf(k, sizeof(k), "views_%s", t);    db_del(k);
             snprintf(k, sizeof(k), "comments_%s", t); db_del(k);
         }
@@ -553,6 +633,72 @@ static void ensure_seed(void) {
         "release date, price, platforms, official", "Kono", 0, "",
         "Everything here is straight from Rockstar — no rumors:\\n\\n- RELEASE: November 19\\n- PRICE: from $79.99\\n- PLATFORMS: PlayStation 5 + Xbox Series X|S\\n- PRE-ORDER: rockstargames.com/VI\\n- SETTING: Vice City, state of Leonida\\n- LEADS: Lucia Caminos & Jason Duval\\n- FOOTAGE: Extended Look captured entirely on PS5\\n\\nAnything else you read online (PC date, map size, DLC) is unconfirmed until Rockstar says so.");
     db_set("seeded_v3", "1");
+}
+
+/* One-time backfill: give every existing post a slug (for DBs created
+ * before slugs existed). Idempotent via the slugs_v2 marker. Also heals
+ * over-long slugs from the first backfill pass (v1 allowed 80 chars,
+ * but FlashDB keys cap at 64). */
+static void ensure_slugs(void) {
+    char *m = db_get("slugs_v2");
+    if (m) { free(m); return; }
+    char *idx = db_get("posts_index");
+    if (!idx) { db_set("slugs_v2", "1"); return; }
+    char *cp = strdup(idx); free(idx);
+    for (char *t = strtok(cp, ","); t; t = strtok(NULL, ",")) {
+        while (*t == ' ') t++;
+        if (!*t) continue;
+        char key[80]; snprintf(key, sizeof(key), "post_%s", t);
+        char *pj = db_get(key);
+        if (!pj) continue;
+        char sl[192] = {0};
+        json_field(pj, "slug", sl, sizeof(sl));
+        if (sl[0] && strlen(sl) <= SLUG_MAX + 8) { /* already good: ensure mapping */
+            char sk[256]; snprintf(sk, sizeof(sk), "slug_%s", sl);
+            char *owner = db_get(sk);
+            if (!owner) db_set(sk, t);
+            else free(owner);
+            free(pj);
+            continue;
+        }
+        if (sl[0]) { /* over-long v1 slug: drop its (broken) mapping */
+            char sk[256]; snprintf(sk, sizeof(sk), "slug_%s", sl); db_del(sk);
+        }
+        char title[4096] = {0};
+        json_field(pj, "title", title, sizeof(title));
+        char base[96]; make_slug(title[0] ? title : t, t, base, sizeof(base));
+        char slug[128]; slug_unique(base, t, slug, sizeof(slug));
+        /* splice "slug" right after "id" field (or replace over-long one) */
+        char idpat[128]; snprintf(idpat, sizeof(idpat), "\"id\":\"%s\"", t);
+        char *at = strstr(pj, idpat);
+        char *upd = NULL;
+        if (sl[0]) { /* replace existing slug value in place */
+            char spat[256]; snprintf(spat, sizeof(spat), "\"slug\":\"%s\"", sl);
+            char *st = strstr(pj, spat);
+            if (st) {
+                upd = malloc(strlen(pj) + strlen(slug) + 8);
+                size_t pre = (size_t)(st - pj);
+                memcpy(upd, pj, pre);
+                sprintf(upd + pre, "\"slug\":\"%s\"%s", slug, st + strlen(spat));
+            }
+        }
+        if (!upd && at) {
+            size_t pre = (size_t)(at - pj) + strlen(idpat);
+            upd = malloc(strlen(pj) + strlen(slug) + 16);
+            memcpy(upd, pj, pre);
+            sprintf(upd + pre, ",\"slug\":\"%s\"%s", slug, pj + pre);
+        }
+        if (!upd) upd = strdup(pj); /* unexpected shape: leave JSON alone */
+        else {
+            db_set(key, upd);
+            char sk[256]; snprintf(sk, sizeof(sk), "slug_%s", slug);
+            db_set(sk, t);
+            fprintf(stderr, "[slugs] backfilled post %s -> %s\n", t, slug);
+        }
+        free(upd); free(pj);
+    }
+    free(cp);
+    db_set("slugs_v2", "1");
 }
 
 /* Build {"posts":[...], "total":N} with optional search/category filter + pagination.
@@ -855,7 +1001,7 @@ static const char *get_header(const char *hdrs, const char *name) {
 static int serve_static(int fd, const char *urlpath) {
     char rel[1024];
     if (strcmp(urlpath, "/") == 0) strcpy(rel, "/index.html");
-    else if (strcmp(urlpath, "/post") == 0) strcpy(rel, "/post.html");
+    else if (strcmp(urlpath, "/post") == 0 || strncmp(urlpath, "/post/", 6) == 0) strcpy(rel, "/post.html");
     else if (strcmp(urlpath, "/about") == 0) strcpy(rel, "/about.html");
     else if (strcmp(urlpath, "/admin") == 0 || strcmp(urlpath, "/login") == 0) strcpy(rel, "/admin.html");
     else { strncpy(rel, urlpath, sizeof(rel)-1); rel[sizeof(rel)-1] = 0; }
@@ -939,11 +1085,17 @@ static void handle_api(int fd, const char *method, const char *path,
         reply_json(fd, j); free(j); return;
     }
     if (!strcmp(path, "/api/post") && !strcmp(method, "GET")) {
-        char id[64] = {0}, ccraw[16] = {0}, craw[64] = {0}, vraw[8] = {0};
+        char id[64] = {0}, slug[192] = {0}, ccraw[16] = {0}, craw[64] = {0}, vraw[8] = {0};
         query_param(qs, "id", id, sizeof(id));
+        query_param(qs, "slug", slug, sizeof(slug));
         query_param(qs, "cc", ccraw, sizeof(ccraw));
         query_param(qs, "country", craw, sizeof(craw));
         query_param(qs, "view", vraw, sizeof(vraw));
+        if (!id[0] && slug[0]) { /* slug lookup -> numeric id */
+            char rid[64];
+            if (!post_id_by_slug(slug, rid, sizeof(rid))) { reply_err(fd, 404, "post not found"); return; }
+            strcpy(id, rid);
+        }
         if (!id[0]) { reply_err(fd, 400, "missing id"); return; }
         char cc[3], cname[64];
         sanitize_cc(ccraw, cc);
@@ -1115,7 +1267,9 @@ static void handle_api(int fd, const char *method, const char *path,
         db_set("posts_index", nidx);
         free(idx); free(nidx);
         tsdb_log("post:create");
-        char b[128]; snprintf(b, sizeof(b), "{\"ok\":true,\"id\":\"%s\"}", id);
+        char b[384], bslug[192] = {0};
+        { char *vj = db_get(verify_key); if (vj) { json_field(vj, "slug", bslug, sizeof(bslug)); free(vj); } }
+        snprintf(b, sizeof(b), "{\"ok\":true,\"id\":\"%s\",\"slug\":\"%s\"}", id, bslug);
         reply_json(fd, b); return;
     }
     if (!strcmp(path, "/api/posts") && (!strcmp(method, "PUT") || !strcmp(method, "PATCH"))) {
@@ -1136,6 +1290,8 @@ static void handle_api(int fd, const char *method, const char *path,
         json_field(old, "author", author, sizeof(author));
         json_field(old, "date", date, sizeof(date));
         json_field(old, "video", video, sizeof(video));
+        char slug[192] = {0};
+        json_field(old, "slug", slug, sizeof(slug));
         int featured = json_field_int(old, "featured", 0);
         free(old);
         char t2[512]; if (json_field(body, "title", t2, sizeof(t2))) strcpy(title, t2);
@@ -1150,18 +1306,25 @@ static void handle_api(int fd, const char *method, const char *path,
             strcpy(video, v2);
         }
         char f2[16]; if (json_field(body, "featured", f2, sizeof(f2))) featured = atoi(f2);
-        /* rebuild preserving date */
+        /* rebuild preserving date + slug (slugs stay stable so links don't rot) */
         char *json = malloc(MAX_POST_SIZE);
-        char et[4096], ee[8192], ec[16000], eg[1024], ei[1024], ea[256], ce[256], ev[32];
+        char et[4096], ee[8192], ec[16000], eg[1024], ei[1024], ea[256], ce[256], ev[32], es[256];
         json_escape_into(title, et, sizeof(et)); json_escape_into(excerpt, ee, sizeof(ee));
         json_escape_into(content, ec, sizeof(ec)); json_escape_into(tags, eg, sizeof(eg));
         json_escape_into(image, ei, sizeof(ei)); json_escape_into(author, ea, sizeof(ea));
         json_escape_into(cat, ce, sizeof(ce)); json_escape_into(video, ev, sizeof(ev));
+        if (!slug[0]) { /* edited post from pre-slug era: mint one now */
+            char base[96]; make_slug(title[0] ? title : id, id, base, sizeof(base));
+            slug_unique(base, id, slug, sizeof(slug));
+            char sk[256]; snprintf(sk, sizeof(sk), "slug_%s", slug);
+            db_set(sk, id);
+        }
+        json_escape_into(slug, es, sizeof(es));
         if (!date[0]) today_iso(date, sizeof(date));
         snprintf(json, MAX_POST_SIZE,
-            "{\"id\":\"%s\",\"title\":\"%s\",\"category\":\"%s\",\"excerpt\":\"%s\","
+            "{\"id\":\"%s\",\"slug\":\"%s\",\"title\":\"%s\",\"category\":\"%s\",\"excerpt\":\"%s\","
             "\"image\":\"%s\",\"tags\":\"%s\",\"author\":\"%s\",\"date\":\"%s\",\"featured\":%d,"
-            "\"video\":\"%s\",\"content\":\"%s\"}", id, et, ce, ee, ei, eg, ea, date, featured, ev, ec);
+            "\"video\":\"%s\",\"content\":\"%s\"}", id, es, et, ce, ee, ei, eg, ea, date, featured, ev, ec);
         db_set(key, json); free(json);
         tsdb_log("post:update");
         reply_json(fd, "{\"ok\":true}"); return;
@@ -1171,6 +1334,13 @@ static void handle_api(int fd, const char *method, const char *path,
         char id[64] = {0}; query_param(qs, "id", id, sizeof(id));
         if (!id[0]) { reply_err(fd, 400, "missing id"); return; }
         char key[80]; snprintf(key, sizeof(key), "post_%s", id);
+        char *gone = db_get(key);
+        if (gone) {
+            char sl[192] = {0};
+            json_field(gone, "slug", sl, sizeof(sl));
+            if (sl[0]) { char sk[256]; snprintf(sk, sizeof(sk), "slug_%s", sl); db_del(sk); }
+            free(gone);
+        }
         db_del(key);
         char vk[80]; snprintf(vk, sizeof(vk), "views_%s", id); db_del(vk);
         char ck[80]; snprintf(ck, sizeof(ck), "comments_%s", id); db_del(ck);
@@ -1423,6 +1593,7 @@ static void init_db(void) {
         free(tok);
     }
     ensure_seed();
+    ensure_slugs();
 }
 
 int main(int argc, char **argv) {

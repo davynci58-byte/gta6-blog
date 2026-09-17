@@ -1,5 +1,7 @@
 /* shared frontend logic — pure vanilla JS */
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* canonical post URL: /post/<slug>, falling back to ?id= for legacy posts */
+const postURL = p => p.slug ? '/post/' + encodeURIComponent(p.slug) : '/post?id=' + encodeURIComponent(p.id);
 let state = { q: '', cat: 'All', page: 1, per: 3, total: 0, cats: ['All'], posts: [], loading: false };
 
 /* visitor country via free GeoIP (cached 7 days). Pure JS, no backend dependency. */
@@ -42,7 +44,7 @@ function cardHTML(p, featured, i) {
     ? `this.onerror=null;this.src='https://i.ytimg.com/vi/${p.video}/hqdefault.jpg'`
     : `this.onerror=null;this.src='https://picsum.photos/seed/gta6${p.id}/800/400'`;
   return `<div class="${featured ? 'col-md-6' : 'col-md-6 col-lg-4'}">
-    <a href="/post?id=${p.id}" class="text-decoration-none"><div class="post-card enter" style="animation-delay:${d}ms">
+    <a href="${postURL(p)}" class="text-decoration-none"><div class="post-card enter" style="animation-delay:${d}ms">
       <div class="thumb-wrap"><img src="${esc(p.image)}" alt="" loading="lazy" onerror="${imgFallback}">
       ${p.video ? '<div class="play-badge"><i>▶</i></div>' : ''}</div>
       <div class="p-3">
